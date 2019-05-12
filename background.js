@@ -158,11 +158,12 @@ async function pushFile(task) {
         var ext = contentType.split('/').pop();
         var key = Util.uuid() + '.' + ext;
         var data = {};
-        data.name = title;
-        data.title = title;
+        const filename = `${title}.${ext}`;  // 必须带上正确的扩展名，否则阅读器上无法正常下载
+        data.name = filename;
+        data.title = filename;
         data.resourceType = ext;
         data.resourceKey = key;
-        data.resourceDisplayName = title;
+        data.resourceDisplayName = filename;
         return data;
     };
 
