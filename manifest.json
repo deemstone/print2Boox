@@ -22,7 +22,7 @@
     "48": "images/get_started48.png",
     "128": "images/get_started128.png"
   },
-  "permissions": [ "activeTab", "declarativeContent", "http://*/*", "https://*/*", "printerProvider", "notifications", "storage", "unlimitedStorage" ],
+  "permissions": [ "activeTab", "tabs", "declarativeContent", "http://*/*", "https://*/*", "printerProvider", "notifications", "storage", "unlimitedStorage" ],
   
   "manifest_version": 2
 }

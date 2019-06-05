@@ -4,6 +4,7 @@
 'use strict';
 
 chrome.runtime.onInstalled.addListener(function() {
+    return;
 	chrome.storage.sync.set({
 		color: '#3aa757'
 	},
@@ -35,31 +36,82 @@ const Util = {
     }
 };
 
-window.stss = null;
+// window.stss = null;
 window.auth = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjA0ODMsInd4VW5pb25pZCI6Im9JdWJZdm42SkRsUWdLVEQwc0ZEOGdDVzFZVGsiLCJpYXQiOjE1NTg5NjgzMDEsImV4cCI6MTU2MTU2MDMwMX0.9xhHHf3yn1DtJ-aJrJ7-oaf3rypVXwru9_il0Ij8Z2Y';
+chrome.storage.sync.set({boox_auth_token: window.auth}, function() {
+    console.log('token set: ' + window.auth);
+});
 
 var CAPABILITIES = ' {      "version": "1.0",      "printer": {       "supported_content_type": [          {"content_type": "application/pdf","min_version":"1.5","max_version":"1.5"},          {"content_type": "image/pwg-raster"}        ],        "copies": {          "default": 1,          "max": 100        },        "color":{          "option": [            {"type":  "STANDARD_COLOR", "is_default":  true},            {"type":  "STANDARD_MONOCHROME"}          ]        },        "duplex":{          "option": [            {"type": "NO_DUPLEX", "is_default":  true },            {"type": "LONG_EDGE"},            {"type": "SHORT_EDGE"}          ]        },        "collate": { "default": true},        "page_orientation":{"option":[{"type":"PORTRAIT","is_default":true},{"type":"LANDSCAPE"}]},        "margins":{"option":[{"type":"BORDERLESS","top":0,"left":0,"right":0,"bottom":0},{"type":"STANDARD","is_default":true},{"type":"CUSTOM"}]},        "media_size": {      "option": [        {          "name": "ISO_A4",          "width_microns": 210000,          "height_microns": 297000,          "is_default": false        },         {          "name": "ISO_A5",          "width_microns": 105000,          "height_microns": 148500,          "is_default": false        },        {          "name": "NA_INDEX_4X6",          "width_microns": 100000,          "height_microns": 150000        },        {          "name": "NA_LETTER",          "width_microns": 215900,          "height_microns": 279400,          "is_default": true        }      ]    }      }    } ';
 const cdd = JSON.parse(CAPABILITIES);
 
-chrome.printerProvider.onGetPrintersRequested.addListener(function(e) {
+function gotoLogin(){
+    // 用户点击确认后 新开tab去登录
+    chrome.tabs.create({
+        active: false,
+        url: 'http://send2boox.com/',
+    }, function(tab) {
+        // TODO: 怎样检测拿到token？  需要content-script
+        chrome.tabs.executeScript(tab.id, {
+            code: 'localStorage.getItem("token");'
+        }, function(r) {
+            console.log('got token: ', r);
+            chrome.tabs.remove(tab.id);
+        });
+    });
+}
+chrome.notifications.onClicked.addListener(function (nid){
+    console.log('notification onClick: ', nid);
+    if( nid.indexOf('gotoLogin') === 0){
+        gotoLogin();
+    }
+});
+chrome.notifications.onClosed.addListener(function (nid, byUser){
+    console.log('notification onClose: ', nid, byUser)
+});
+chrome.notifications.onButtonClicked.addListener(function (nid, btnIndex){
+    console.log('notification onBtnClick: ', nid, btnIndex);
+});
+async function getToken(){
+    return new Promise((resolve, reject) => {
+
+        chrome.storage.sync.get(['boox_auth_token'], function(result) {
+            const token = result.boox_auth_token;
+            console.log('boox_auth_token got: ' + token);
+
+            resolve(token);
+
+            if(!token ){
+                //TODO:
+                chrome.notifications.create('gotoLogin'+ Date.now(), {
+                    type: "basic",
+                    iconUrl: "images/get_started32.png",
+                    title: "BooxPrinter",
+                    message: "请先登录send2Boox",
+                    //expandedMessage: "",
+                    priority: 1,
+                    buttons: [
+                    {
+                        title: "停用",  // 今天不提醒
+                    },
+                    //{
+                    //    title: "abort"
+                    //}
+                    ]
+                }, function(nid){
+                    // TODO: 记录一下 消息分类
+                });
+            }
+        });
+    })
+
+}
+
+chrome.printerProvider.onGetPrintersRequested.addListener(async function(e) {
 	var r = [];
 
-    if(!window.auth ){
-        //TODO:
-        chrome.notifications.create('onGetPrintersRequested', {
-            type: "basic",
-            iconUrl: "images/get_started32.png",
-            title: "Print message",
-            message: "请先登录send2Boox",
-            //expandedMessage: "",
-            priority: 1,
-            //buttons: [{
-            //    title: "go!"
-            //},{
-            //    title: "abort"
-            //}]
-        });
-    }else{
+    const token = await getToken();
+    if( token ){
         r.push({
             id: "Print to Boox",
             name: "Print to Boox"
@@ -73,18 +125,17 @@ chrome.printerProvider.onGetCapabilityRequested.addListener(function(e, r) {
 	return r(cdd);
 });
 
-chrome.printerProvider.onPrintRequested.addListener(function(e, r) {
+chrome.printerProvider.onPrintRequested.addListener(async function(e, r) {
 	console.log('onPrintRequested()', e, r)
     
-    pushFile(e)
-    .then( res => {
+    try{
+        const res = await pushFile(e)
         return r("OK");
-    })
-    .catch(e => {
+    }catch(e) {
         console.error('pushFile Failed');
         console.error(e);
         return r("FAILED");
-    });
+    };
 });
 
 const API_PREFIX = 'http://send2boox.com/api/1';
@@ -196,10 +247,39 @@ async function pushFile(task) {
 
     var data = dataObj();
 
-    // 上传到OSS
-    const client = await getOssClient();
-    const ossRes = await client.put(data.resourceKey, fileBlob);
-    console.log('oss response: ', ossRes);
-    // 推送
-    await postData(data);
+    try{
+        // 上传到OSS
+        const client = await getOssClient();
+        const ossRes = await client.put(data.resourceKey, fileBlob);
+        console.log('oss response: ', ossRes);
+        // 推送
+        await postData(data);
+
+        chrome.notifications.create('pushSuccess'+ Date.now(), {
+            type: "basic",
+            iconUrl: "images/get_started32.png",
+            title: "BooxPrinter",
+            message: `推送成功：${data.name}`,
+            //expandedMessage: "",
+            priority: 1,
+        }, function(nid){
+            // 4s 后自动关闭
+            setTimeout(() => {
+                chrome.notifications.clear(nid);
+            }, 4000)
+        });
+
+    }catch(e){
+        //TODO: 失败的任务 如果已经上传oss，可以续传
+        chrome.notifications.create('pushFailed'+ Date.now(), {
+            type: "basic",
+            iconUrl: "images/get_started32.png",
+            title: "BooxPrinter",
+            message: `推送失败：${data.name}`,
+            //expandedMessage: "",
+            priority: 1,
+        });
+
+        throw e;
+    }
 }
