@@ -37,7 +37,9 @@ const Util = {
 };
 
 // window.stss = null;
-window.auth = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjA0ODMsInd4VW5pb25pZCI6Im9JdWJZdm42SkRsUWdLVEQwc0ZEOGdDVzFZVGsiLCJpYXQiOjE1NTg5NjgzMDEsImV4cCI6MTU2MTU2MDMwMX0.9xhHHf3yn1DtJ-aJrJ7-oaf3rypVXwru9_il0Ij8Z2Y';
+// window.auth = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjA0ODMsInd4VW5pb25pZCI6Im9JdWJZdm42SkRsUWdLVEQwc0ZEOGdDVzFZVGsiLCJpYXQiOjE1NTg5NjgzMDEsImV4cCI6MTU2MTU2MDMwMX0.9xhHHf3yn1DtJ-aJrJ7-oaf3rypVXwru9_il0Ij8Z2Y';
+// 20190810
+window.auth = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjA0ODMsInd4VW5pb25pZCI6Im9JdWJZdm42SkRsUWdLVEQwc0ZEOGdDVzFZVGsiLCJpYXQiOjE1NjQwNjY0NzQsImV4cCI6MTU2NjY1ODQ3NH0.CixA_pGdecn50kUT4T55oaXYOu70jlnGbVvcmI_bFG4'
 chrome.storage.sync.set({boox_auth_token: window.auth}, function() {
     console.log('token set: ' + window.auth);
 });
@@ -253,7 +255,12 @@ async function pushFile(task) {
         const ossRes = await client.put(data.resourceKey, fileBlob);
         console.log('oss response: ', ossRes);
         // 推送
-        await postData(data);
+        const res = await postData(data);
+
+        // 如果api请求失败
+        if( res.status !== 200 ){
+          throw new Error(`http status = ${res.status}`);
+        }
 
         chrome.notifications.create('pushSuccess'+ Date.now(), {
             type: "basic",
@@ -275,7 +282,7 @@ async function pushFile(task) {
             type: "basic",
             iconUrl: "images/get_started32.png",
             title: "BooxPrinter",
-            message: `推送失败：${data.name}`,
+            message: `推送失败：${data.name}, Error:${e.message}`,
             //expandedMessage: "",
             priority: 1,
         });
