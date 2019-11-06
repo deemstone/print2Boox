@@ -1,16 +1,46 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset=utf-8>
     <style>
-      button {
-        height: 30px;
-        width: 30px;
-        outline: none;
-      }
+        * { 
+            padding: 0px; 
+            margin: 0px;
+        }
+
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #333;
+            width: 200px;	
+        }
+
+        .main-wrapper {
+            padding: 7px;
+        }
+
+        /* big orange heading  - Postman Interceptor */
+        h3 {
+            color: #f15a24;
+            font-size: 16px;
+            font-weight: normal;
+        }
+
+        h4 {
+            color: #4a90e2;
+            font-size: 16px;
+            font-weight: normal;
+        }
     </style>
   </head>
   <body>
-    <button id="changeColor"></button>
-    <script src="popup.js"></script>
+      <div class="main-wrapper">
+        <h3>Print2Boox</h3>	
+        <img id="avatar" src="" />
+        <p id="user_name"></p>
+        <p>登录状态可能显示不准，如果推送失败，请重新登录。</p>
+        <br>
+        <a id="gotoLogin" href="#">去登陆</a>
+      </div>
+      <script src="popup.js"></script>
   </body>
 </html>

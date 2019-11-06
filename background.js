@@ -24,29 +24,107 @@ const Util = {
 var CAPABILITIES = ' {      "version": "1.0",      "printer": {       "supported_content_type": [          {"content_type": "application/pdf","min_version":"1.5","max_version":"1.5"},          {"content_type": "image/pwg-raster"}        ],        "copies": {          "default": 1,          "max": 100        },        "color":{          "option": [            {"type":  "STANDARD_COLOR", "is_default":  true},            {"type":  "STANDARD_MONOCHROME"}          ]        },        "duplex":{          "option": [            {"type": "NO_DUPLEX", "is_default":  true },            {"type": "LONG_EDGE"},            {"type": "SHORT_EDGE"}          ]        },        "collate": { "default": true},        "page_orientation":{"option":[{"type":"PORTRAIT","is_default":true},{"type":"LANDSCAPE"}]},        "margins":{"option":[{"type":"BORDERLESS","top":0,"left":0,"right":0,"bottom":0},{"type":"STANDARD","is_default":true},{"type":"CUSTOM"}]},        "media_size": {      "option": [        {          "name": "ISO_A4",          "width_microns": 210000,          "height_microns": 297000,          "is_default": false        },         {          "name": "ISO_A5",          "width_microns": 105000,          "height_microns": 148500,          "is_default": false        },        {          "name": "NA_INDEX_4X6",          "width_microns": 100000,          "height_microns": 150000        },        {          "name": "NA_LETTER",          "width_microns": 215900,          "height_microns": 279400,          "is_default": true        }      ]    }      }    } ';
 const cdd = JSON.parse(CAPABILITIES);
 
+const openedTabs = {
+  /* tabId: any */
+};
+
 async function gotoLogin(){
-  return new Promise((resolve, reject) => {
-    // 用户点击确认后 新开tab去登录
-    chrome.tabs.create({
-      active: false,
-      url: 'http://send2boox.com/',
-    }, function(tab) {
-      //TODO: 等待登录过程 页面跳转？监听某个事件？
-      // 用content-script拿到token
-      chrome.tabs.executeScript(tab.id, {
-        code: 'localStorage.getItem("token");'
-      }, function(r) {
-        const token = r[0];
-        console.log('got token: ', token);
-        chrome.tabs.remove(tab.id);
-        // 返回的r是个数组
-        chrome.storage.sync.set({'boox_auth_token': token}, function() {
-          resolve(token);
-        });
-      });
-    });
+  // 用户点击确认后 新开tab去登录
+  // 只管打开，不管是否登录成功，
+  // 后面webRequest的监听会异步等待登录成功
+  chrome.tabs.create({
+    active: true,
+    url: 'http://send2boox.com/',
+  }, function(tab) {
+    // 只有记录到这里的tabId 触发登录成功才会弹出notification
+    openedTabs[tab.id] = tab;
+
   });
 }
+
+// 我们打开的tab 再弹出的tab 也要记录一下
+// 比如 网站登录时选择“微信登录”会新开tab
+chrome.tabs.onCreated.addListener(function(tab){
+  const { openerTabId } = tab;
+  if( openedTabs[openerTabId] ){
+    openedTabs[tab.id] = tab;
+  }
+})
+
+// tab关闭时清理相关记录
+chrome.tabs.onRemoved.addListener(function (tabId){
+  if(openedTabs[tabId]){
+    delete openedTabs[tabId];
+  }
+});
+
+// 监听ajax请求，寻找登录成功的 特征
+chrome.webRequest.onCompleted.addListener(function(details){
+  const { tabId, url, type, statusCode } = details;
+
+  // 只关心ajax请求
+  if( type !== 'xmlhttprequest' ){
+    return;
+  }
+
+  if( statusCode !== 200 ){
+    return;
+  }
+
+  // 注意：这个特征请求可能随时会变动
+  if( !url.includes('users/getDevice/') ){
+    return;
+  }
+
+  // 确定是登录成功了，从localstorage中取回token
+
+  // 用content-script拿到token
+  chrome.tabs.executeScript(tabId, {
+    code: `
+      ['token', 'avatarUrl', 'userName', 'userId'].reduce( (r, n) => {
+        r[n] = localStorage.getItem(n);
+        return r;
+      }, {});
+    `
+  }, function(r) {
+    // 返回的r是个数组
+    const user = r[0];
+    console.log('got token: ', user.token);
+    // 不自动销毁窗口
+    // chrome.tabs.remove(tab.id);
+    loginSuccess(user);
+
+    // 如果是用户在此extension上主动触发的登录
+    // 给一个notification提示
+    if( openedTabs[tabId] ){
+      chrome.notifications.create('loginSuccess'+ Date.now(), {
+        type: "basic",
+        iconUrl: "images/get_started32.png",  // TODO: user.avatarUrl 将图片取回来用blob显示
+        title: "BooxPrinter",
+        message: `登录成功：${user.userName}`,
+        //expandedMessage: "",
+        priority: 1,
+      }, function(nid){
+        // 4s 后自动关闭
+        setTimeout(() => {
+          chrome.notifications.clear(nid);
+        }, 4000)
+      });
+    }
+
+    // TODO: 在工具栏 browser_action 按钮上弹出“登录成功”的提示。
+  });
+},
+{urls: ["*://send2boox.com/*"]});
+
+// 登录成功，token存起来，界面上修改提示状态
+function loginSuccess(user){
+  const data = Object.assign({boox_auth_token: user.token}, user);
+  chrome.storage.local.set(data, function() {
+    console.log('已存储：', JSON.stringify(data));
+  });
+}
+
 
 // 处理桌面通知交互
 chrome.notifications.onClicked.addListener(function (nid){
@@ -67,7 +145,7 @@ chrome.notifications.onButtonClicked.addListener(function (nid, btnIndex){
 async function getToken(){
   return new Promise((resolve, reject) => {
 
-    chrome.storage.sync.get(['boox_auth_token'], function(result) {
+    chrome.storage.local.get(['boox_auth_token'], function(result) {
       const token = result.boox_auth_token;
       console.log('old got: ' + token);
 
