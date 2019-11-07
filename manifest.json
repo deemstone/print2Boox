@@ -1,6 +1,6 @@
 {
   "name": "Print to Boox",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Print any page to Boox reader (via offical send2boox.com)",
   "options_page": "options.html",
   "background": {

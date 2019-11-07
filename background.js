@@ -299,7 +299,7 @@ async function pushFile(task) {
 
     // 如果未登录
     if( res.status === 401 ){
-      chrome.notifications.create('gotoLogin', {
+      chrome.notifications.create('gotoLogin'+ Date.now(), {
         type: "basic",
         iconUrl: "images/get_started32.png",
         title: "BooxPrinter",
