@@ -1,6 +1,6 @@
 {
   "name": "Print to Boox",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Print any page to Boox reader (via offical send2boox.com)",
   "options_page": "options.html",
   "background": {
@@ -11,17 +11,17 @@
     "default_popup": "popup.html",
     "default_title": "Print to Boox",
     "default_icon": {
-      "16": "images/get_started16.png",
-      "32": "images/get_started32.png",
-      "48": "images/get_started48.png",
-      "128": "images/get_started128.png"
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png",
+      "48": "images/icon-48.png",
+      "128": "images/icon-128.png"
     }
   },
   "icons": {
-    "16": "images/get_started16.png",
-    "32": "images/get_started32.png",
-    "48": "images/get_started48.png",
-    "128": "images/get_started128.png"
+    "16": "images/icon-16.png",
+    "32": "images/icon-32.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
   },
   "permissions": [ "http://send2boox.com/", "tabs", "printerProvider", "notifications", "storage", "webRequest" ],
   
