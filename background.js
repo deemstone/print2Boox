@@ -3,7 +3,26 @@
  */
 'use strict';
 
-chrome.runtime.onInstalled.addListener(function() {
+const notification_icon = "images/icon-128.png";
+
+chrome.runtime.onInstalled.addListener(function(details) {
+  const {reason, previousVersion} = details;
+  // 0.0.3 icon链接错了 导致notification都不出了，这里提示一下
+  if( reason === 'update' && previousVersion === '0.0.3' ){
+    chrome.notifications.create('loginSuccess'+ Date.now(), {
+      type: "basic",
+      iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
+      title: "Bug fixed",
+      message: 'Bug fixed! Now, notification will pop-up when you print.',
+      //expandedMessage: "",
+      priority: 1,
+    }, function(nid){
+      // 4s 后自动关闭
+      setTimeout(() => {
+        chrome.notifications.clear(nid);
+      }, 10000)
+    });
+  }
   // TODO: 弹出使用说明（或者版本新功能的说明）
   return;
 });
@@ -99,7 +118,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
     if( openedTabs[tabId] ){
       chrome.notifications.create('loginSuccess'+ Date.now(), {
         type: "basic",
-        iconUrl: "images/get_started32.png",  // TODO: user.avatarUrl 将图片取回来用blob显示
+        iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
         title: "BooxPrinter",
         message: `登录成功：${user.userName}`,
         //expandedMessage: "",
@@ -301,7 +320,7 @@ async function pushFile(task) {
     if( res.status === 401 ){
       chrome.notifications.create('gotoLogin'+ Date.now(), {
         type: "basic",
-        iconUrl: "images/get_started32.png",
+        iconUrl: notification_icon,
         title: "BooxPrinter",
         message: `请先登录send2Boox（点击登录）`,
         //expandedMessage: "",
@@ -316,7 +335,7 @@ async function pushFile(task) {
 
     chrome.notifications.create('pushSuccess'+ Date.now(), {
       type: "basic",
-      iconUrl: "images/get_started32.png",
+      iconUrl: notification_icon,
       title: "BooxPrinter",
       message: `推送成功：${data.name}`,
       //expandedMessage: "",
@@ -332,7 +351,7 @@ async function pushFile(task) {
     //TODO: 失败的任务 如果已经上传oss，可以续传
     chrome.notifications.create('pushFailed'+ Date.now(), {
       type: "basic",
-      iconUrl: "images/get_started32.png",
+      iconUrl: notification_icon,
       title: "BooxPrinter",
       message: `推送失败：${data.name}, Error:${e.message}`,
       //expandedMessage: "",
