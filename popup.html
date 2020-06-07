@@ -30,6 +30,9 @@
             font-size: 16px;
             font-weight: normal;
         }
+        .login_entry li{
+            line-height: 24px;
+        }
     </style>
   </head>
   <body>
@@ -37,9 +40,12 @@
         <h3>Print2Boox</h3>	
         <img id="avatar" src="" />
         <p id="user_name"></p>
-        <p>登录状态可能显示不准，如果推送失败，请重新登录。</p>
+        <p>__MSG_go_login_when_failed__</p>
         <br>
-        <a id="gotoLogin" href="#">去登陆</a>
+        <ul class="login_entry">
+            <li><a id="gotoLogin_s2b" href="#">去登陆(中国send2boox.com)</a></li>
+            <li><a id="gotoLogin_pb" href="#">Go Login (push.boox.com)</a></li>
+        </ul>
       </div>
       <script src="popup.js"></script>
   </body>

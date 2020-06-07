@@ -7,23 +7,41 @@ const notification_icon = "images/icon-128.png";
 
 chrome.runtime.onInstalled.addListener(function(details) {
   const {reason, previousVersion} = details;
-  // 0.0.3 icon链接错了 导致notification都不出了，这里提示一下
-  if( reason === 'update' && previousVersion === '0.0.3' ){
-    chrome.notifications.create('loginSuccess'+ Date.now(), {
-      type: "basic",
-      iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
-      title: "Bug fixed",
-      message: 'Bug fixed! Now, notification will pop-up when you print.',
-      //expandedMessage: "",
-      priority: 1,
-    }, function(nid){
-      // 4s 后自动关闭
-      setTimeout(() => {
-        chrome.notifications.clear(nid);
-      }, 10000)
-    });
+  if( reason === 'update' ){
+    const [mnv, mjv, lv] = previousVersion.split('.').map(s => parseInt(s));
+    // 0.0.5 增加了新版官网的支持，并支持push.boox.com网站账号
+    if( mnv === mjv === 0 && lv < 5 ){
+      chrome.notifications.create('installed'+ Date.now(), {
+        type: "basic",
+        iconUrl: notification_icon,
+        title: chrome.i18n.getMessage("update_installed"), 
+        message: chrome.i18n.getMessage("update_comment_0_0_5"),
+        //expandedMessage: "",
+        priority: 1,
+      }, function(nid){
+        // 4s 后自动关闭
+        setTimeout(() => {
+          chrome.notifications.clear(nid);
+        }, 10000)
+      });
+    }
+    // 0.0.3 icon链接错了 导致notification都不出了，这里提示一下
+    if( previousVersion === '0.0.3' ){
+      chrome.notifications.create('loginSuccess'+ Date.now(), {
+        type: "basic",
+        iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
+        title: "Bug fixed",
+        message: 'Bug fixed! Now, notification will pop-up when you print.',
+        //expandedMessage: "",
+        priority: 1,
+      }, function(nid){
+        // 4s 后自动关闭
+        setTimeout(() => {
+          chrome.notifications.clear(nid);
+        }, 10000)
+      });
+    }
   }
-  // TODO: 弹出使用说明（或者版本新功能的说明）
   return;
 });
 
@@ -47,13 +65,13 @@ const openedTabs = {
   /* tabId: any */
 };
 
-async function gotoLogin(){
+async function gotoLogin(domain){
   // 用户点击确认后 新开tab去登录
   // 只管打开，不管是否登录成功，
   // 后面webRequest的监听会异步等待登录成功
   chrome.tabs.create({
     active: true,
-    url: 'http://send2boox.com/',
+    url: `http://${domain}/`,
   }, function(tab) {
     // 只有记录到这里的tabId 触发登录成功才会弹出notification
     openedTabs[tab.id] = tab;
@@ -91,7 +109,10 @@ chrome.webRequest.onCompleted.addListener(function(details){
   }
 
   // 注意：这个特征请求可能随时会变动
-  if( !url.includes('users/getDevice/') ){
+  if(
+      !url.includes('users/getDevice/')  // 升级笔记功能之前的旧版网站，是直接进入推送界面的
+    && !url.includes('/im/getSig') // 新版在线笔记功能
+  ){
     return;
   }
 
@@ -133,8 +154,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
 
     // TODO: 在工具栏 browser_action 按钮上弹出“登录成功”的提示。
   });
-},
-{urls: ["*://send2boox.com/*"]});
+}, {urls: ["*://send2boox.com/*", "*://push.boox.com/*"]});
 
 // 登录成功，token存起来，界面上修改提示状态
 function loginSuccess(user){

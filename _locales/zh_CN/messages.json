@@ -1,0 +1,14 @@
+{
+    "update_installed": {
+        "message": "更新成功",
+        "description": "notifiction on update success"
+    },
+    "update_comment_0_0_5": {
+        "message": "支持新版网站，支持海外的push.boox.com账号登录"
+    },
+    "go_login_when_failed": {
+        "message": "登录状态可能显示不准，如果推送失败，请重新登录。",
+        "description": "show on popup"
+
+    }
+}

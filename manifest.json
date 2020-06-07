@@ -1,8 +1,9 @@
 {
   "name": "Print to Boox",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Print any page to Boox reader (via offical send2boox.com)",
   "options_page": "options.html",
+  "default_locale": "en_GB",
   "background": {
     "scripts": ["aliyun-oss-sdk-6.0.0.min.js", "background.js"],
     "persistent": true
@@ -23,7 +24,7 @@
     "48": "images/icon-48.png",
     "128": "images/icon-128.png"
   },
-  "permissions": [ "http://send2boox.com/", "tabs", "printerProvider", "notifications", "storage", "webRequest" ],
+  "permissions": [ "*://send2boox.com/", "*://push.boox.com/", "tabs", "printerProvider", "notifications", "storage", "webRequest" ],
   
   "manifest_version": 2
 }

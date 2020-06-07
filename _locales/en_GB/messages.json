@@ -1,0 +1,14 @@
+{
+    "update_installed": {
+        "message": "Update installed!",
+        "description": "notifiction on update success"
+    },
+    "update_comment_0_0_5": {
+        "message": "push.boox.com supported!"
+    },
+    "go_login_when_failed": {
+        "message": "If push failed, Try login again. Choose one link below (according to your boox account)",
+        "description": "show on popup"
+
+    }
+}
