@@ -1,14 +1,63 @@
 {
     "update_installed": {
-        "message": "Update installed!",
-        "description": "notifiction on update success"
+        "message": "print2Boox $version$",
+        "description": "notifiction on update success",
+        "placeholders": {
+            "version": {
+                "content": "$1",
+                "example": "0.0.6"
+            }
+        }
     },
     "update_comment_0_0_5": {
         "message": "push.boox.com supported!"
+    },
+    "update_comment_0_0_6": {
+        "message": "Fixed! Try PRINT now ~ Using push.boox.com outside of China."
     },
     "go_login_when_failed": {
         "message": "If push failed, Try login again. Choose one link below (according to your boox account)",
         "description": "show on popup"
 
+    },
+    "please_login_first": {
+        "message": "The login status is invalid, please log in again.",
+        "description": "notification on api 401",
+        "placeholders": {
+            "domain": {
+                "content": "$1",
+                "example": "send2boox.com"
+            }
+        }
+    },
+    "push_success": {
+        "message": "Pushed: $name$",
+        "description": "notification on push success",
+        "placeholders": {
+            "name": {
+                "content": "$1",
+                "example": "《论持久战》.pdf"
+            }
+        }
+    },
+    "push_failed_title": {
+        "message": "Push Failed: $name$",
+        "description": "notification title on push failed",
+        "placeholders": {
+            "name": {
+                "content": "$1",
+                "example": "《论持久战》.pdf"
+            }
+        }
+    },
+    "login_success": {
+        "message": "Login success: $userName$",
+        "description": "notification content on login success",
+        "placeholders": {
+            "userName": {
+                "content": "$1",
+                "example": "小鱼儿"
+            }
+        }
     }
 }

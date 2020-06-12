@@ -1,13 +1,14 @@
 {
   "name": "Print to Boox",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Print any page to Boox reader (via offical send2boox.com)",
   "options_page": "options.html",
   "default_locale": "en_GB",
   "background": {
-    "scripts": ["aliyun-oss-sdk-6.0.0.min.js", "background.js"],
+    "scripts": ["aliyun-oss-sdk-6.0.0.min.js", "error.js", "background.js"],
     "persistent": true
   },
+  "content_security_policy": "script-src 'self' https://www.google-analytics.com; object-src 'self'",
   "browser_action": {
     "default_popup": "popup.html",
     "default_title": "Print to Boox",

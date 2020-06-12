@@ -5,12 +5,47 @@
 
 const notification_icon = "images/icon-128.png";
 
+const { version: VERSION } = chrome.runtime.getManifest();
+
+function verBigger(vb, vl, equal){
+  if( vb === vl ){
+    return !!equal;
+  }
+  const [vb1, vb2, vb3] = vb.split('.').map(s => parseInt(s) || 0);
+  const [vl1, vl2, vl3] = vl.split('.').map(s => parseInt(s) || 0);
+
+  if( vb1 < vl1 ){
+    return false;
+  }else if( vb2 < vl2 ){
+    return false;
+  }else if( vb3 < vl3 ){
+    return false;
+  }
+  return true;
+}
+
 chrome.runtime.onInstalled.addListener(function(details) {
   const {reason, previousVersion} = details;
+  ga('send', 'event', 'onInstalled', VERSION, reason, previousVersion);
   if( reason === 'update' ){
-    const [mnv, mjv, lv] = previousVersion.split('.').map(s => parseInt(s));
+    // 0.0.6 增加了bucket逻辑，国外用户应该可以正常使用了
+    if( verBigger('0.0.6', previousVersion) ){
+      chrome.notifications.create('installed'+ Date.now(), {
+        type: "basic",
+        iconUrl: notification_icon,
+        title: chrome.i18n.getMessage("update_installed", ['0.0.6']), 
+        message: chrome.i18n.getMessage("update_comment_0_0_6"),
+        //expandedMessage: "",
+        priority: 1,
+      }, function(nid){
+        // 4s 后自动关闭
+        setTimeout(() => {
+          chrome.notifications.clear(nid);
+        }, 10000)
+      });
+    }
     // 0.0.5 增加了新版官网的支持，并支持push.boox.com网站账号
-    if( mnv === mjv === 0 && lv < 5 ){
+    if( verBigger('0.0.5', previousVersion) ){
       chrome.notifications.create('installed'+ Date.now(), {
         type: "basic",
         iconUrl: notification_icon,
@@ -42,6 +77,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       });
     }
   }
+
   return;
 });
 
@@ -66,6 +102,9 @@ const openedTabs = {
 };
 
 async function gotoLogin(domain){
+  if( !domain ){
+    throw new Error('gotoLogin need domain!');
+  }
   // 用户点击确认后 新开tab去登录
   // 只管打开，不管是否登录成功，
   // 后面webRequest的监听会异步等待登录成功
@@ -116,12 +155,14 @@ chrome.webRequest.onCompleted.addListener(function(details){
     return;
   }
 
+  const siteDomain = (new URL(url)).hostname;
+
   // 确定是登录成功了，从localstorage中取回token
 
   // 用content-script拿到token
   chrome.tabs.executeScript(tabId, {
     code: `
-      ['token', 'avatarUrl', 'userName', 'userId'].reduce( (r, n) => {
+      ['token', 'avatarUrl', 'userName', 'userId', 'userUid'].reduce( (r, n) => {
         r[n] = localStorage.getItem(n);
         return r;
       }, {});
@@ -132,7 +173,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
     console.log('got token: ', user.token);
     // 不自动销毁窗口
     // chrome.tabs.remove(tab.id);
-    loginSuccess(user);
+    loginSuccess(user, siteDomain);
 
     // 如果是用户在此extension上主动触发的登录
     // 给一个notification提示
@@ -141,8 +182,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
         type: "basic",
         iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
         title: "BooxPrinter",
-        message: `登录成功：${user.userName}`,
-        //expandedMessage: "",
+        message: chrome.i18n.getMessage("login_success", [user.userName]), 
         priority: 1,
       }, function(nid){
         // 4s 后自动关闭
@@ -150,15 +190,19 @@ chrome.webRequest.onCompleted.addListener(function(details){
           chrome.notifications.clear(nid);
         }, 4000)
       });
+      delete openedTabs[tabId];
     }
-
-    // TODO: 在工具栏 browser_action 按钮上弹出“登录成功”的提示。
   });
 }, {urls: ["*://send2boox.com/*", "*://push.boox.com/*"]});
 
 // 登录成功，token存起来，界面上修改提示状态
-function loginSuccess(user){
-  const data = Object.assign({boox_auth_token: user.token}, user);
+function loginSuccess(user, siteDomain){
+  const data = Object.assign({
+    boox_auth_token: user.token,
+    siteDomain, // 此账号所属站点
+    version: VERSION, // 当前插件版本（升级时判断）
+  }, user);
+
   chrome.storage.local.set(data, function() {
     console.log('已存储：', JSON.stringify(data));
   });
@@ -184,11 +228,17 @@ chrome.notifications.onButtonClicked.addListener(function (nid, btnIndex){
 async function getToken(){
   return new Promise((resolve, reject) => {
 
-    chrome.storage.local.get(['boox_auth_token'], function(result) {
+    chrome.storage.local.get(['boox_auth_token', 'siteDomain', 'version', 'userUid'], function(result) {
       const token = result.boox_auth_token;
+      const { siteDomain, userUid } = result;
       console.log('old got: ' + token);
 
-      resolve(token);
+      // 提示重新登录 才能拿到账号的站点
+      if( !siteDomain || !userUid ){
+        return reject( new Error(chrome.i18n.getMessage("please_login_first")) );
+      }
+
+      resolve({ token, siteDomain, userUid });
     });
   })
 }
@@ -219,23 +269,11 @@ chrome.printerProvider.onPrintRequested.addListener(async function(e, r) {
   };
 });
 
-const API_PREFIX = 'http://send2boox.com/api/1';
 
 window.ossClient = null;  // client放到全局缓存
-async function getOssClient() {
-  if( !window.ossClient ){
-    const bucket = 'onyx-content';
-    const region = 'oss-cn-shenzhen';
-
-    const client = new OSS({
-      region: region,
-      accessKeyId: '__fake__', // creds.AccessKeyId,
-      accessKeySecret: '__fake__', // creds.AccessKeySecret,
-      stsToken: '__fake__', // creds.SecurityToken,
-      bucket: bucket
-    });
-    window.ossClient = client;
-
+async function getOssClient(API_PREFIX) {
+  if( window.ossClient ){
+    return window.ossClient;
   }
 
   // 因为有效期比auth短 每次都更新stsToken
@@ -243,9 +281,23 @@ async function getOssClient() {
     method: 'get'
   }).then(response => response.json());
 
-  window.ossClient.options.accessKeyId = creds.AccessKeyId;
-  window.ossClient.options.accessKeySecret = creds.AccessKeySecret;
-  window.ossClient.options.stsToken = creds.SecurityToken;
+  // { "result_code": 0, "message": "SUCCESS"
+  // "data": { "region": "oss-cn-shenzhen", "bucket": "onyx-cloud", "endpoint": "cloud.send2boox.com" }, }
+  const { data: zone } = await fetch(`${API_PREFIX}/push/bucket`, {
+    method: 'get'
+  }).then(response => response.json());
+
+  const bucket = zone.bucket; // 'onyx-content';
+  const region = zone.region; //'oss-cn-shenzhen';
+
+  const client = new OSS({
+    region: region,
+    accessKeyId: creds.AccessKeyId,
+    accessKeySecret: creds.AccessKeySecret,
+    stsToken: creds.SecurityToken,
+    bucket: bucket
+  });
+  window.ossClient = client;
 
   return window.ossClient;
 }
@@ -281,9 +333,12 @@ async function getOssClient() {
 //   "title": "Cloud Device Description  |  Cloud Print  |  Google Developers"
 // }
 async function pushFile(task) {
+  
+  ga('send', 'event', 'pushFile', 'start');
+
   const { contentType, document: fileBlob, title } = task;
   // 写入推送消息
-  async function postData(data, token) {
+  async function postData(data, token, API_PREFIX) {
     // const json = {
     //     "data":{
     //         "name":"西潮与新潮_-_蒋梦麟.epub",
@@ -313,9 +368,10 @@ async function pushFile(task) {
   };
 
   // 从 print task 上取信息
-  function dataObj() {
+  function dataObj(userUid) {
     var ext = contentType.split('/').pop();
-    var key = Util.uuid() + '.' + ext;
+    // 官网源码：this.local.get("userUid") + "/push/" + m.a.uuid() + "." + r
+    var key = `${userUid}/push/${Util.uuid()}.${ext}`;
     var data = {};
     const filename = `${title}.${ext}`;  // 必须带上正确的扩展名，否则阅读器上无法正常下载
     data.name = filename;
@@ -325,16 +381,20 @@ async function pushFile(task) {
     data.resourceDisplayName = filename;
     return data;
   };
-  const token = await getToken();
-  var data = dataObj();
+
+  let data = {};
 
   try{
+    const { token, siteDomain, userUid } = await getToken();
+    data = dataObj(userUid);
+    const API_PREFIX = `http://${siteDomain}/api/1`;
     // 上传到OSS
-    const client = await getOssClient();
+    const client = await getOssClient(API_PREFIX);
     const ossRes = await client.put(data.resourceKey, fileBlob);
     console.log('oss response: ', ossRes);
     // 推送
-    const res = await postData(data, token);
+    data.bucket = client.options.bucket; // boox多站点之后的新参数
+    const res = await postData(data, token, API_PREFIX);
 
     // 如果未登录
     if( res.status === 401 ){
@@ -342,8 +402,7 @@ async function pushFile(task) {
         type: "basic",
         iconUrl: notification_icon,
         title: "BooxPrinter",
-        message: `请先登录send2Boox（点击登录）`,
-        //expandedMessage: "",
+        message: chrome.i18n.getMessage("please_login_first", [siteDomain]), 
         priority: 1,
       });
       return;
@@ -357,7 +416,7 @@ async function pushFile(task) {
       type: "basic",
       iconUrl: notification_icon,
       title: "BooxPrinter",
-      message: `推送成功：${data.name}`,
+      message: chrome.i18n.getMessage("push_success", [data.name]), 
       //expandedMessage: "",
       priority: 1,
     }, function(nid){
@@ -366,18 +425,26 @@ async function pushFile(task) {
         chrome.notifications.clear(nid);
       }, 4000)
     });
+    ga('send', 'event', 'pushFile', 'success');
 
   }catch(e){
     //TODO: 失败的任务 如果已经上传oss，可以续传
     chrome.notifications.create('pushFailed'+ Date.now(), {
       type: "basic",
       iconUrl: notification_icon,
-      title: "BooxPrinter",
-      message: `推送失败：${data.name}, Error:${e.message}`,
-      //expandedMessage: "",
+      title: chrome.i18n.getMessage("push_failed_title", [data.name]),
+      message: `Error: ${e.message}`,
       priority: 1,
     });
+    ga('send', 'event', 'pushFile', 'failed', e.message);
 
     throw e;
   }
 }
+
+// function cutString(str, n){
+//   if( str.length > n ){
+//     return `${str.substr(n)}...`;
+//   }
+//   return str;
+// }

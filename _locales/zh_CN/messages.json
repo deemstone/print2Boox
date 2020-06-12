@@ -1,14 +1,63 @@
 {
     "update_installed": {
-        "message": "更新成功",
-        "description": "notifiction on update success"
+        "message": "print2Boox 已更新 $version$",
+        "description": "notifiction on update success",
+        "placeholders": {
+            "version": {
+                "content": "$1",
+                "example": "0.0.6"
+            }
+        }
     },
     "update_comment_0_0_5": {
         "message": "支持新版网站，支持海外的push.boox.com账号登录"
     },
+    "update_comment_0_0_6": {
+        "message": "修复推送功能，海外用户应该可以正常使用了。🤗"
+    },
     "go_login_when_failed": {
         "message": "登录状态可能显示不准，如果推送失败，请重新登录。",
         "description": "show on popup"
-
+    },
+    "please_login_first": {
+        "message": "登录状态失效，请重新登录。",
+        "description": "notification on api 401",
+        "placeholders": {
+            "domain": {
+                "content": "$1",
+                "example": "send2boox.com"
+            }
+        }
+    },
+    "push_success": {
+        "message": "推送成功: $name$",
+        "description": "notification on push success",
+        "placeholders": {
+            "name": {
+                "content": "$1",
+                "example": "《论持久战》.pdf"
+            }
+        }
+    },
+    "push_failed_title": {
+        "message": "推送失败: $name$",
+        "description": "notification title on push failed",
+        "placeholders": {
+            "name": {
+                "content": "$1",
+                "example": "《论持久战》.pdf"
+            }
+        }
+    },
+    "login_success": {
+        "message": "登录成功: $userName$",
+        "description": "notification content on login success",
+        "placeholders": {
+            "userName": {
+                "content": "$1",
+                "example": "小鱼儿"
+            }
+        }
     }
+
 }
