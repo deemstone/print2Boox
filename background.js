@@ -33,7 +33,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       chrome.notifications.create('installed'+ Date.now(), {
         type: "basic",
         iconUrl: notification_icon,
-        title: chrome.i18n.getMessage("update_installed", ['0.0.6']), 
+        title: chrome.i18n.getMessage("update_installed", [VERSION]), 
         message: chrome.i18n.getMessage("update_comment_0_0_6"),
         //expandedMessage: "",
         priority: 1,
@@ -270,11 +270,8 @@ chrome.printerProvider.onPrintRequested.addListener(async function(e, r) {
 });
 
 
-window.ossClient = null;  // client放到全局缓存
 async function getOssClient(API_PREFIX) {
-  if( window.ossClient ){
-    return window.ossClient;
-  }
+  // stss的有效期只有数分钟，不再缓存ossclient
 
   // 因为有效期比auth短 每次都更新stsToken
   const { data: creds } = await fetch(`${API_PREFIX}/stss/`, {
@@ -297,9 +294,7 @@ async function getOssClient(API_PREFIX) {
     stsToken: creds.SecurityToken,
     bucket: bucket
   });
-  window.ossClient = client;
-
-  return window.ossClient;
+  return client;
 }
 
 // {
