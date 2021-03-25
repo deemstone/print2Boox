@@ -33,7 +33,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       chrome.notifications.create('installed'+ Date.now(), {
         type: "basic",
         iconUrl: notification_icon,
-        title: chrome.i18n.getMessage("update_installed", ['0.0.6']), 
+        title: chrome.i18n.getMessage("update_installed", ['0.0.6']),
         message: chrome.i18n.getMessage("update_comment_0_0_6"),
         //expandedMessage: "",
         priority: 1,
@@ -49,7 +49,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       chrome.notifications.create('installed'+ Date.now(), {
         type: "basic",
         iconUrl: notification_icon,
-        title: chrome.i18n.getMessage("update_installed"), 
+        title: chrome.i18n.getMessage("update_installed"),
         message: chrome.i18n.getMessage("update_comment_0_0_5"),
         //expandedMessage: "",
         priority: 1,
@@ -162,15 +162,31 @@ chrome.webRequest.onCompleted.addListener(function(details){
   // 用content-script拿到token
   chrome.tabs.executeScript(tabId, {
     code: `
-      ['token', 'avatarUrl', 'userName', 'userId', 'userUid'].reduce( (r, n) => {
+      ['token'].reduce( (r, n) => {
         r[n] = localStorage.getItem(n);
         return r;
       }, {});
     `
-  }, function(r) {
+  }, async function(r) {
     // 返回的r是个数组
-    const user = r[0];
-    console.log('got token: ', user.token);
+    const token = r[0].token;
+    console.log('got token: ', token);
+
+    const userinfo = await fetch(`http://${siteDomain}/api/1/users/me`, {
+      method: 'get',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    }).then(response => response.json());
+    const user = {
+      token: token,
+      userName: userinfo.data.nickname,
+      userId: userinfo.data.id,
+      userUid: userinfo.data.uid,
+      avatarUrl: userinfo.data.avatarUrl
+    }
+
     // 不自动销毁窗口
     // chrome.tabs.remove(tab.id);
     loginSuccess(user, siteDomain);
@@ -182,7 +198,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
         type: "basic",
         iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
         title: "BooxPrinter",
-        message: chrome.i18n.getMessage("login_success", [user.userName]), 
+        message: chrome.i18n.getMessage("login_success", [user.userName]),
         priority: 1,
       }, function(nid){
         // 4s 后自动关闭
@@ -333,7 +349,7 @@ async function getOssClient(API_PREFIX) {
 //   "title": "Cloud Device Description  |  Cloud Print  |  Google Developers"
 // }
 async function pushFile(task) {
-  
+
   ga('send', 'event', 'pushFile', 'start');
 
   const { contentType, document: fileBlob, title } = task;
@@ -402,7 +418,7 @@ async function pushFile(task) {
         type: "basic",
         iconUrl: notification_icon,
         title: "BooxPrinter",
-        message: chrome.i18n.getMessage("please_login_first", [siteDomain]), 
+        message: chrome.i18n.getMessage("please_login_first", [siteDomain]),
         priority: 1,
       });
       return;
@@ -416,7 +432,7 @@ async function pushFile(task) {
       type: "basic",
       iconUrl: notification_icon,
       title: "BooxPrinter",
-      message: chrome.i18n.getMessage("push_success", [data.name]), 
+      message: chrome.i18n.getMessage("push_success", [data.name]),
       //expandedMessage: "",
       priority: 1,
     }, function(nid){
