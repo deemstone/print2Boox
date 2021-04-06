@@ -49,7 +49,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       chrome.notifications.create('installed'+ Date.now(), {
         type: "basic",
         iconUrl: notification_icon,
-        title: chrome.i18n.getMessage("update_installed"), 
+        title: chrome.i18n.getMessage("update_installed"),
         message: chrome.i18n.getMessage("update_comment_0_0_5"),
         //expandedMessage: "",
         priority: 1,
@@ -149,7 +149,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
 
   // 注意：这个特征请求可能随时会变动
   if(
-      !url.includes('users/getDevice/')  // 升级笔记功能之前的旧版网站，是直接进入推送界面的
+    !url.includes('users/getDevice/')  // 升级笔记功能之前的旧版网站，是直接进入推送界面的
     && !url.includes('/im/getSig') // 新版在线笔记功能
   ){
     return;
@@ -162,15 +162,31 @@ chrome.webRequest.onCompleted.addListener(function(details){
   // 用content-script拿到token
   chrome.tabs.executeScript(tabId, {
     code: `
-      ['token', 'avatarUrl', 'userName', 'userId', 'userUid'].reduce( (r, n) => {
+      ['token'].reduce( (r, n) => {
         r[n] = localStorage.getItem(n);
         return r;
       }, {});
     `
-  }, function(r) {
+  }, async function(r) {
     // 返回的r是个数组
-    const user = r[0];
-    console.log('got token: ', user.token);
+    const token = r[0].token;
+    console.log('got token: ', token);
+
+    const userinfo = await fetch(`http://${siteDomain}/api/1/users/me`, {
+      method: 'get',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    }).then(response => response.json());
+    const user = {
+      token: token,
+      userName: userinfo.data.nickname,
+      userId: userinfo.data.id,
+      userUid: userinfo.data.uid,
+      avatarUrl: userinfo.data.avatarUrl
+    }
+
     // 不自动销毁窗口
     // chrome.tabs.remove(tab.id);
     loginSuccess(user, siteDomain);
@@ -182,7 +198,7 @@ chrome.webRequest.onCompleted.addListener(function(details){
         type: "basic",
         iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
         title: "BooxPrinter",
-        message: chrome.i18n.getMessage("login_success", [user.userName]), 
+        message: chrome.i18n.getMessage("login_success", [user.userName]),
         priority: 1,
       }, function(nid){
         // 4s 后自动关闭
@@ -231,7 +247,6 @@ async function getToken(){
     chrome.storage.local.get(['boox_auth_token', 'siteDomain', 'version', 'userUid'], function(result) {
       const token = result.boox_auth_token;
       const { siteDomain, userUid } = result;
-      console.log('old got: ' + token);
 
       // 提示重新登录 才能拿到账号的站点
       if( !siteDomain || !userUid ){
@@ -272,12 +287,13 @@ chrome.printerProvider.onPrintRequested.addListener(async function(e, r) {
 
 async function getOssClient(API_PREFIX) {
   // stss的有效期只有数分钟，不再缓存ossclient
-
+  // if( window.ossClient ){
+  //   return window.ossClient;
+  // }
   // 因为有效期比auth短 每次都更新stsToken
   const { data: creds } = await fetch(`${API_PREFIX}/stss/`, {
     method: 'get'
   }).then(response => response.json());
-
   // { "result_code": 0, "message": "SUCCESS"
   // "data": { "region": "oss-cn-shenzhen", "bucket": "onyx-cloud", "endpoint": "cloud.send2boox.com" }, }
   const { data: zone } = await fetch(`${API_PREFIX}/push/bucket`, {
@@ -328,7 +344,7 @@ async function getOssClient(API_PREFIX) {
 //   "title": "Cloud Device Description  |  Cloud Print  |  Google Developers"
 // }
 async function pushFile(task) {
-  
+
   ga('send', 'event', 'pushFile', 'start');
 
   const { contentType, document: fileBlob, title } = task;
@@ -386,7 +402,6 @@ async function pushFile(task) {
     // 上传到OSS
     const client = await getOssClient(API_PREFIX);
     const ossRes = await client.put(data.resourceKey, fileBlob);
-    console.log('oss response: ', ossRes);
     // 推送
     data.bucket = client.options.bucket; // boox多站点之后的新参数
     const res = await postData(data, token, API_PREFIX);
@@ -397,7 +412,7 @@ async function pushFile(task) {
         type: "basic",
         iconUrl: notification_icon,
         title: "BooxPrinter",
-        message: chrome.i18n.getMessage("please_login_first", [siteDomain]), 
+        message: chrome.i18n.getMessage("please_login_first", [siteDomain]),
         priority: 1,
       });
       return;
@@ -411,7 +426,7 @@ async function pushFile(task) {
       type: "basic",
       iconUrl: notification_icon,
       title: "BooxPrinter",
-      message: chrome.i18n.getMessage("push_success", [data.name]), 
+      message: chrome.i18n.getMessage("push_success", [data.name]),
       //expandedMessage: "",
       priority: 1,
     }, function(nid){
@@ -422,7 +437,7 @@ async function pushFile(task) {
     });
     ga('send', 'event', 'pushFile', 'success');
 
-  }catch(e){
+  } catch(e){
     //TODO: 失败的任务 如果已经上传oss，可以续传
     chrome.notifications.create('pushFailed'+ Date.now(), {
       type: "basic",
