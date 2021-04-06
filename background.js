@@ -28,6 +28,22 @@ chrome.runtime.onInstalled.addListener(function(details) {
   const {reason, previousVersion} = details;
   ga('send', 'event', 'onInstalled', VERSION, reason, previousVersion);
   if( reason === 'update' ){
+    // 0.0.8 2021-03-21 跟随BOOX官网更新，修正登录逻辑
+    if( verBigger('0.0.8', previousVersion) ){
+      chrome.notifications.create('installed'+ Date.now(), {
+        type: "basic",
+        iconUrl: notification_icon,
+        title: chrome.i18n.getMessage("update_installed", [VERSION]), 
+        message: chrome.i18n.getMessage("update_comment_0_0_8"),
+        //expandedMessage: "",
+        priority: 1,
+      }, function(nid){
+        // 4s 后自动关闭
+        setTimeout(() => {
+          chrome.notifications.clear(nid);
+        }, 10000)
+      });
+    }
     // 0.0.6 增加了bucket逻辑，国外用户应该可以正常使用了
     if( verBigger('0.0.6', previousVersion) ){
       chrome.notifications.create('installed'+ Date.now(), {
@@ -64,7 +80,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
     if( previousVersion === '0.0.3' ){
       chrome.notifications.create('loginSuccess'+ Date.now(), {
         type: "basic",
-        iconUrl: notification_icon,  // TODO: user.avatarUrl 将图片取回来用blob显示
+        iconUrl: notification_icon,
         title: "Bug fixed",
         message: 'Bug fixed! Now, notification will pop-up when you print.',
         //expandedMessage: "",
@@ -278,8 +294,8 @@ chrome.printerProvider.onPrintRequested.addListener(async function(e, r) {
     const res = await pushFile(e)
     return r("OK");
   }catch(e) {
-    console.error('pushFile Failed');
-    console.error(e);
+    ga('send', 'exception', e.message, e.stack);
+    console.error(`pushFile Failed: ${e}, ${e.stack}`);
     return r("FAILED");
   };
 });

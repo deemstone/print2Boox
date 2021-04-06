@@ -15,6 +15,9 @@
     "update_comment_0_0_6": {
         "message": "Really~Really Fixed! Try PRINT now ~ Using push.boox.com outside of China."
     },
+    "update_comment_0_0_8": {
+        "message": "Fixed! Adapted to the new version of Boox service."
+    },
     "go_login_when_failed": {
         "message": "If push failed, Try login again. Choose one link below (according to your boox account)",
         "description": "show on popup"
